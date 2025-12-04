@@ -1,16 +1,15 @@
 defmodule RateLimiterPerformanceTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   setup do
-    # Reset state before each test
-    :ok = RateLimiter.RateLimiter.reset()
-    {:ok, _} = RateLimiter.RateLimiter.configure(60, 10000)
-    :ok
+    # Start a unique GenServer instance for this test
+    {:ok, pid} = GenServer.start_link(RateLimiter.RateLimiter, [])
+    {:ok, limiter: pid}
   end
 
   describe "throughput benchmarks" do
-    test "handles 1000+ requests per second" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 10000)
+    test "handles 1000+ requests per second", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 10000})
 
       # Measure time to process 1000 requests
       start_time = System.monotonic_time(:millisecond)
@@ -20,7 +19,7 @@ defmodule RateLimiterPerformanceTest do
           num = i
           client_num = rem(num, 10)
           Task.async(fn ->
-            RateLimiter.RateLimiter.check_rate_limit("client_#{client_num}", "resource")
+            GenServer.call(limiter, {:check_rate_limit, "client_#{client_num}", "resource"})
           end)
         end)
 
@@ -38,8 +37,8 @@ defmodule RateLimiterPerformanceTest do
       IO.puts("\n  Throughput: #{Float.round(throughput, 2)} req/s (elapsed: #{elapsed_ms}ms)")
     end
 
-    test "handles 5000+ requests per second with high concurrency" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 50000)
+    test "handles 5000+ requests per second with high concurrency", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 50000})
 
       start_time = System.monotonic_time(:millisecond)
 
@@ -48,7 +47,7 @@ defmodule RateLimiterPerformanceTest do
         Enum.map(1..5000, fn i ->
           client_num = rem(i, 50)
           Task.async(fn ->
-            RateLimiter.RateLimiter.check_rate_limit("bench_client_#{client_num}", "resource")
+            GenServer.call(limiter, {:check_rate_limit, "bench_client_#{client_num}", "resource"})
           end)
         end)
 
@@ -66,13 +65,13 @@ defmodule RateLimiterPerformanceTest do
   end
 
   describe "latency benchmarks" do
-    test "processes single request in under 10ms (latency requirement)" do
+    test "processes single request in under 10ms (latency requirement)", %{limiter: limiter} do
       # Warm up
-      RateLimiter.RateLimiter.check_rate_limit("latency_test", "resource")
+      GenServer.call(limiter, {:check_rate_limit, "latency_test", "resource"})
 
       # Measure single request latency
       start_time = System.monotonic_time(:microsecond)
-      {:ok, _response} = RateLimiter.RateLimiter.check_rate_limit("latency_test", "resource")
+      {:ok, _response} = GenServer.call(limiter, {:check_rate_limit, "latency_test", "resource"})
       elapsed_us = System.monotonic_time(:microsecond) - start_time
       elapsed_ms = elapsed_us / 1000
 
@@ -81,15 +80,15 @@ defmodule RateLimiterPerformanceTest do
       IO.puts("\n  Single request latency: #{Float.round(elapsed_ms, 3)}ms")
     end
 
-    test "maintains sub-10ms latency under load" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100000)
+    test "maintains sub-10ms latency under load", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
 
       # Spawn background load
       background_tasks =
         for _ <- 1..100 do
           Task.async(fn ->
             for _ <- 1..50 do
-              RateLimiter.RateLimiter.check_rate_limit("bg_client", "resource")
+              GenServer.call(limiter, {:check_rate_limit, "bg_client", "resource"})
             end
           end)
         end
@@ -98,7 +97,7 @@ defmodule RateLimiterPerformanceTest do
       latencies_microsecond =
         for _ <- 1..100 do
           start_time = System.monotonic_time(:microsecond)
-          RateLimiter.RateLimiter.check_rate_limit("latency_client", "resource")
+          GenServer.call(limiter, {:check_rate_limit, "latency_client", "resource"})
           elapsed_us = System.monotonic_time(:microsecond) - start_time
           elapsed_us
         end
@@ -130,14 +129,14 @@ defmodule RateLimiterPerformanceTest do
       """)
     end
 
-    test "p95 latency is reasonable under stress" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100000)
+    test "p95 latency is reasonable under stress", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
 
       # Measure 500 requests
       latencies =
         for _ <- 1..500 do
           start_time = System.monotonic_time(:microsecond)
-          RateLimiter.RateLimiter.check_rate_limit("p95_client", "resource")
+          GenServer.call(limiter, {:check_rate_limit, "p95_client", "resource"})
           elapsed_us = System.monotonic_time(:microsecond) - start_time
           elapsed_us / 1000
         end
@@ -155,8 +154,8 @@ defmodule RateLimiterPerformanceTest do
   end
 
   describe "scalability benchmarks" do
-    test "scales with number of concurrent clients" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100000)
+    test "scales with number of concurrent clients", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
 
       client_counts = [10, 50, 100, 500]
 
@@ -168,7 +167,7 @@ defmodule RateLimiterPerformanceTest do
             Enum.map(1..1000, fn i ->
               client_num = rem(i, client_count)
               Task.async(fn ->
-                RateLimiter.RateLimiter.check_rate_limit("client_#{client_num}", "resource")
+                GenServer.call(limiter, {:check_rate_limit, "client_#{client_num}", "resource"})
               end)
             end)
 
@@ -191,15 +190,15 @@ defmodule RateLimiterPerformanceTest do
       end)
     end
 
-    test "memory efficiency with many clients" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100000)
+    test "memory efficiency with many clients", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
 
       # Create requests from 1000 different clients
       tasks =
         for i <- 1..1000 do
           Task.async(fn ->
             for _ <- 1..10 do
-              RateLimiter.RateLimiter.check_rate_limit("distinct_client_#{i}", "resource")
+              GenServer.call(limiter, {:check_rate_limit, "distinct_client_#{i}", "resource"})
             end
           end)
         end
@@ -207,7 +206,7 @@ defmodule RateLimiterPerformanceTest do
       _results = Task.await_many(tasks)
 
       # Should complete without issues - validates memory management
-      {:ok, config} = RateLimiter.RateLimiter.get_config()
+      {:ok, config} = GenServer.call(limiter, :get_config)
       assert config.window_seconds == 60
       assert config.requests_per_window == 100000
 
@@ -216,14 +215,14 @@ defmodule RateLimiterPerformanceTest do
   end
 
   describe "consistency and accuracy under stress" do
-    test "maintains accurate request counting under concurrent load" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 50)
+    test "maintains accurate request counting under concurrent load", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 50})
 
       # All requests from same client
       tasks =
         for _ <- 1..100 do
           Task.async(fn ->
-            RateLimiter.RateLimiter.check_rate_limit("stress_client", "resource")
+            GenServer.call(limiter, {:check_rate_limit, "stress_client", "resource"})
           end)
         end
 
@@ -247,8 +246,8 @@ defmodule RateLimiterPerformanceTest do
       IO.puts("\n  Concurrent stress test: #{allowed_count} allowed, #{denied_count} denied (accurate)")
     end
 
-    test "maintains per-client isolation under stress" do
-      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100)
+    test "maintains per-client isolation under stress", %{limiter: limiter} do
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100})
 
       # Create load from multiple clients
       client_results =
@@ -256,7 +255,7 @@ defmodule RateLimiterPerformanceTest do
           tasks =
             for _ <- 1..50 do
               Task.async(fn ->
-                RateLimiter.RateLimiter.check_rate_limit("stress_client_#{client_num}", "resource")
+                GenServer.call(limiter, {:check_rate_limit, "stress_client_#{client_num}", "resource"})
               end)
             end
 
@@ -275,11 +274,11 @@ defmodule RateLimiterPerformanceTest do
   end
 
   describe "operation timing" do
-    test "configure operation completes quickly" do
+    test "configure operation completes quickly", %{limiter: limiter} do
       times =
         for _ <- 1..100 do
           start_time = System.monotonic_time(:microsecond)
-          {:ok, _} = RateLimiter.RateLimiter.configure(120, 500)
+          {:ok, _} = GenServer.call(limiter, {:configure, 120, 500})
           elapsed_us = System.monotonic_time(:microsecond) - start_time
           elapsed_us / 1000
         end
@@ -291,11 +290,11 @@ defmodule RateLimiterPerformanceTest do
       IO.puts("\n  Configure operation average time: #{Float.round(avg_time, 3)}ms")
     end
 
-    test "get_config operation is instant" do
+    test "get_config operation is instant", %{limiter: limiter} do
       times =
         for _ <- 1..100 do
           start_time = System.monotonic_time(:microsecond)
-          {:ok, _} = RateLimiter.RateLimiter.get_config()
+          {:ok, _} = GenServer.call(limiter, :get_config)
           elapsed_us = System.monotonic_time(:microsecond) - start_time
           elapsed_us / 1000
         end

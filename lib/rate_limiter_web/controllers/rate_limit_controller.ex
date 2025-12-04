@@ -139,7 +139,8 @@ defmodule RateLimiterWeb.RateLimitController do
         end
 
       _ ->
-        {:error, "Missing or invalid required field: request_per_window (must be positive integer)"}
+        {:error,
+         "Missing or invalid required field: request_per_window (must be positive integer)"}
     end
   end
 end

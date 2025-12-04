@@ -35,8 +35,6 @@ defmodule RateLimiter.MixProject do
       {:phoenix, "~> 1.7.21"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:finch, "~> 0.13"},
-      {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
     ]

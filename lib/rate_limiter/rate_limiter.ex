@@ -14,7 +14,8 @@ defmodule RateLimiter.RateLimiter do
 
   @default_window_seconds 60
   @default_requests_per_window 100
-  @cleanup_interval 30_000  # Clean up every 30 seconds
+  # Clean up every 30 seconds
+  @cleanup_interval 30_000
 
   # ============================================================================
   # Public API
@@ -53,7 +54,10 @@ defmodule RateLimiter.RateLimiter do
   Returns the client-specific configuration.
   """
   def configure_client(client_id, window_seconds, requests_per_window) do
-    GenServer.call(__MODULE__, {:configure_client, client_id, window_seconds, requests_per_window})
+    GenServer.call(
+      __MODULE__,
+      {:configure_client, client_id, window_seconds, requests_per_window}
+    )
   end
 
   @doc """
@@ -121,7 +125,7 @@ defmodule RateLimiter.RateLimiter do
     limit = client_config.requests_per_window
 
     # Clean up old timestamps outside the window
-    clean_timestamps = Enum.filter(timestamps, &((now - &1) < window_ms))
+    clean_timestamps = Enum.filter(timestamps, &(now - &1 < window_ms))
 
     # Check if we're under the limit
     requests_count = length(clean_timestamps)
@@ -167,11 +171,16 @@ defmodule RateLimiter.RateLimiter do
   end
 
   @impl true
-  def handle_call({:configure_client, client_id, window_seconds, requests_per_window}, _from, state) do
+  def handle_call(
+        {:configure_client, client_id, window_seconds, requests_per_window},
+        _from,
+        state
+      ) do
     client_config = %{
       window_seconds: window_seconds,
       requests_per_window: requests_per_window
     }
+
     new_client_configs = Map.put(state.client_configs, client_id, client_config)
     new_state = %{state | client_configs: new_client_configs}
 
@@ -221,7 +230,7 @@ defmodule RateLimiter.RateLimiter do
     new_clients =
       state.clients
       |> Enum.reduce(%{}, fn {client_id, timestamps}, acc ->
-        clean_timestamps = Enum.filter(timestamps, &((now - &1) < window_ms))
+        clean_timestamps = Enum.filter(timestamps, &(now - &1 < window_ms))
 
         if Enum.empty?(clean_timestamps) do
           acc

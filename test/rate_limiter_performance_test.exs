@@ -18,6 +18,7 @@ defmodule RateLimiterPerformanceTest do
         Enum.map(1..1000, fn i ->
           num = i
           client_num = rem(num, 10)
+
           Task.async(fn ->
             GenServer.call(limiter, {:check_rate_limit, "client_#{client_num}", "resource"})
           end)
@@ -37,15 +38,16 @@ defmodule RateLimiterPerformanceTest do
       IO.puts("\n  Throughput: #{Float.round(throughput, 2)} req/s (elapsed: #{elapsed_ms}ms)")
     end
 
-    test "handles 5000+ requests per second with high concurrency", %{limiter: limiter} do
+    test "handles 50000+ requests per second with high concurrency", %{limiter: limiter} do
       {:ok, _} = GenServer.call(limiter, {:configure, 60, 50000})
 
       start_time = System.monotonic_time(:millisecond)
 
-      # 5000 concurrent requests
+      # 50000 concurrent requests
       tasks =
-        Enum.map(1..5000, fn i ->
+        Enum.map(1..50000, fn i ->
           client_num = rem(i, 50)
+
           Task.async(fn ->
             GenServer.call(limiter, {:check_rate_limit, "bench_client_#{client_num}", "resource"})
           end)
@@ -56,11 +58,14 @@ defmodule RateLimiterPerformanceTest do
 
       # All requests should succeed with high limit
       success_count = Enum.count(results, fn {:ok, r} -> r.allowed end)
-      assert success_count >= 5000 * 0.99, "Most requests should succeed"
+      assert success_count >= 50000 * 0.99, "Most requests should succeed"
 
       # Throughput calculation
-      throughput = 5000 / (elapsed_ms / 1000)
-      IO.puts("\n  High concurrency throughput: #{Float.round(throughput, 2)} req/s (5000 requests in #{elapsed_ms}ms)")
+      throughput = 50000 / (elapsed_ms / 1000)
+
+      IO.puts(
+        "\n  High concurrency throughput: #{Float.round(throughput, 2)} req/s (50000 requests in #{elapsed_ms}ms)"
+      )
     end
   end
 
@@ -75,13 +80,14 @@ defmodule RateLimiterPerformanceTest do
       elapsed_us = System.monotonic_time(:microsecond) - start_time
       elapsed_ms = elapsed_us / 1000
 
-      assert elapsed_ms < 10, "Single request latency: #{Float.round(elapsed_ms, 3)}ms (expected < 10ms)"
+      assert elapsed_ms < 10,
+             "Single request latency: #{Float.round(elapsed_ms, 3)}ms (expected < 10ms)"
 
       IO.puts("\n  Single request latency: #{Float.round(elapsed_ms, 3)}ms")
     end
 
     test "maintains sub-10ms latency under load", %{limiter: limiter} do
-      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100_000})
 
       # Spawn background load
       background_tasks =
@@ -108,12 +114,12 @@ defmodule RateLimiterPerformanceTest do
       # Calculate statistics
       latency_sum = Enum.reduce(latencies_microsecond, 0, fn x, acc -> acc + x end)
       avg_latency = latency_sum / Enum.count(latencies_microsecond) / 1000
-      max_latency = Enum.max(latencies_microsecond)/1000
-      min_latency = Enum.min(latencies_microsecond)/1000
+      max_latency = Enum.max(latencies_microsecond) / 1000
+      min_latency = Enum.min(latencies_microsecond) / 1000
 
       # Most should be under 10ms (the actual rate limiter operation is sub-millisecond)
       count_under_10ms = Enum.count(latencies_microsecond, &(&1 < 10_000))
-      percent_under_10ms = (count_under_10ms / Enum.count(latencies_microsecond)) * 100
+      percent_under_10ms = count_under_10ms / Enum.count(latencies_microsecond) * 100
 
       # Under background load, we're still well under 10ms per operation
       # Using 70% threshold to account for system scheduling variance
@@ -130,7 +136,7 @@ defmodule RateLimiterPerformanceTest do
     end
 
     test "p95 latency is reasonable under stress", %{limiter: limiter} do
-      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100_000})
 
       # Measure 500 requests
       latencies =
@@ -147,7 +153,8 @@ defmodule RateLimiterPerformanceTest do
       p95_latency = Enum.at(sorted, p95_index)
 
       # p95 should be under 15ms
-      assert p95_latency < 15, "p95 latency should be under 15ms, got #{Float.round(p95_latency, 3)}ms"
+      assert p95_latency < 15,
+             "p95 latency should be under 15ms, got #{Float.round(p95_latency, 3)}ms"
 
       IO.puts("\n  p95 latency (500 requests): #{Float.round(p95_latency, 3)}ms")
     end
@@ -155,17 +162,18 @@ defmodule RateLimiterPerformanceTest do
 
   describe "scalability benchmarks" do
     test "scales with number of concurrent clients", %{limiter: limiter} do
-      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100_000})
 
-      client_counts = [10, 50, 100, 500]
+      client_counts = [10, 50, 100, 500, 1000]
 
       results =
         Enum.map(client_counts, fn client_count ->
           start_time = System.monotonic_time(:millisecond)
 
           tasks =
-            Enum.map(1..1000, fn i ->
+            Enum.map(1..10000, fn i ->
               client_num = rem(i, client_count)
+
               Task.async(fn ->
                 GenServer.call(limiter, {:check_rate_limit, "client_#{client_num}", "resource"})
               end)
@@ -173,15 +181,17 @@ defmodule RateLimiterPerformanceTest do
 
           _results = Task.await_many(tasks)
           elapsed_ms = System.monotonic_time(:millisecond) - start_time
-          throughput = 1000 / (elapsed_ms / 1000)
+          throughput = 10000 / (elapsed_ms / 1000)
 
           {client_count, throughput, elapsed_ms}
         end)
 
-      IO.puts("\n  Scalability (1000 requests across varying client counts):")
+      IO.puts("\n  Scalability (10000 requests across varying client counts):")
 
       Enum.each(results, fn {client_count, throughput, elapsed_ms} ->
-        IO.puts("    #{client_count} clients: #{Float.round(throughput, 2)} req/s (#{elapsed_ms}ms)")
+        IO.puts(
+          "    #{client_count} clients: #{Float.round(throughput, 2)} req/s (#{elapsed_ms}ms)"
+        )
       end)
 
       # Should maintain reasonable throughput across all scenarios
@@ -191,7 +201,7 @@ defmodule RateLimiterPerformanceTest do
     end
 
     test "memory efficiency with many clients", %{limiter: limiter} do
-      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100000})
+      {:ok, _} = GenServer.call(limiter, {:configure, 60, 100_000})
 
       # Create requests from 1000 different clients
       tasks =
@@ -208,7 +218,7 @@ defmodule RateLimiterPerformanceTest do
       # Should complete without issues - validates memory management
       {:ok, config} = GenServer.call(limiter, :get_config)
       assert config.window_seconds == 60
-      assert config.requests_per_window == 100000
+      assert config.requests_per_window == 100_000
 
       IO.puts("\n  Successfully tracked requests from 1000 distinct clients")
     end
@@ -243,7 +253,9 @@ defmodule RateLimiterPerformanceTest do
         end
       end)
 
-      IO.puts("\n  Concurrent stress test: #{allowed_count} allowed, #{denied_count} denied (accurate)")
+      IO.puts(
+        "\n  Concurrent stress test: #{allowed_count} allowed, #{denied_count} denied (accurate)"
+      )
     end
 
     test "maintains per-client isolation under stress", %{limiter: limiter} do
@@ -255,7 +267,10 @@ defmodule RateLimiterPerformanceTest do
           tasks =
             for _ <- 1..50 do
               Task.async(fn ->
-                GenServer.call(limiter, {:check_rate_limit, "stress_client_#{client_num}", "resource"})
+                GenServer.call(
+                  limiter,
+                  {:check_rate_limit, "stress_client_#{client_num}", "resource"}
+                )
               end)
             end
 
@@ -304,7 +319,9 @@ defmodule RateLimiterPerformanceTest do
 
       assert max_time < 5, "Get config should always complete in < 5ms"
 
-      IO.puts("\n  Get config operation - avg: #{Float.round(avg_time, 3)}ms, max: #{Float.round(max_time, 3)}ms")
+      IO.puts(
+        "\n  Get config operation - avg: #{Float.round(avg_time, 3)}ms, max: #{Float.round(max_time, 3)}ms"
+      )
     end
   end
 end

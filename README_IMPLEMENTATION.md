@@ -228,9 +228,10 @@ mix test --cover
   - Multiple windows with different clients
 
 **Performance Tests (11 tests)** - `test/rate_limiter_performance_test.exs`
-- Throughput: 38,461 req/s (requirement: 1000+)
-- Latency: 0.019ms average (requirement: < 10ms)
-- Scalability: Linear across client counts
+- Throughput: 44,000+ req/s (requirement: 1000+)
+- Latency: 0.010ms average (requirement: < 10ms)
+- High concurrency: 15,000+ req/s with 50,000 concurrent requests
+- Scalability: Linear across client counts (17,000 - 44,000 req/s)
 - Consistency: 100% accurate under stress
 - Memory efficiency: Handles 1000+ clients
 
@@ -461,17 +462,21 @@ done
 
 ### Latency
 
-- **Single Request:** 0.019ms average
-- **Under Load:** 3.784ms average
-- **p95 Latency:** 0.027ms
-- **Max Observed:** 15.8ms
+- **Single Request:** 0.010ms average
+- **Under Load:** 5.5ms average
+- **p95 Latency:** 0.040ms
+- **Max Observed:** 37ms
 
 ### Throughput
 
-- **Sequential:** 38,461 req/s
-- **Concurrent (5000 tasks):** 43,859 req/s
-- **Per 10 Clients:** 38,461 req/s
-- **Per 500 Clients:** 50,000 req/s
+- **Sequential (1,000 requests):** 44,000+ req/s
+- **High Concurrency (50,000 requests):** 15,000+ req/s
+- **Scalability (10,000 requests):**
+  - 10 clients: ~18,000 req/s
+  - 50 clients: ~36,000 req/s
+  - 100 clients: ~38,000 req/s
+  - 500 clients: ~41,000 req/s
+  - 1000 clients: ~44,000 req/s
 
 ### Scalability
 

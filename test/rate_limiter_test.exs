@@ -479,7 +479,7 @@ defmodule RateLimiterTest do
         {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("dynamic_client", "resource")
         assert response.allowed == true
         # Remaining should be based on new limit, but old timestamp still counts
-        assert response.remaining <= (20 - i)
+        assert response.remaining <= 20 - i
       end
     end
   end

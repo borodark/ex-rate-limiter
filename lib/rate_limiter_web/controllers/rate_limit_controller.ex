@@ -8,6 +8,7 @@ defmodule RateLimiterWeb.RateLimitController do
   Health check endpoint for monitoring and load balancers.
   Returns 200 OK if the service is running.
   """
+  @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def health(conn, _params) do
     json(conn, %{status: "ok"})
   end
@@ -17,6 +18,7 @@ defmodule RateLimiterWeb.RateLimitController do
 
   Checks if a request from a client should be allowed.
   """
+  @spec check(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def check(conn, params) do
     with {:ok, client_id} <- validate_client_id(params),
          {:ok, resource} <- validate_resource(params),
@@ -35,6 +37,7 @@ defmodule RateLimiterWeb.RateLimitController do
 
   Updates the rate limiting configuration.
   """
+  @spec configure(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def configure(conn, params) do
     with {:ok, window} <- validate_window(params),
          {:ok, limit} <- validate_limit(params),
@@ -53,6 +56,7 @@ defmodule RateLimiterWeb.RateLimitController do
 
   Sets custom rate limiting configuration for a specific client.
   """
+  @spec configure_client(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def configure_client(conn, params) do
     with {:ok, client_id} <- validate_client_id(params),
          {:ok, window} <- validate_window(params),
@@ -72,6 +76,7 @@ defmodule RateLimiterWeb.RateLimitController do
 
   Gets the rate limiting configuration for a specific client.
   """
+  @spec get_client_config(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def get_client_config(conn, %{"client_id" => client_id}) do
     with {:ok, client_id} <- validate_client_id(%{"client_id" => client_id}),
          {:ok, config} <- RateLimiter.RateLimiter.get_client_config(client_id) do
@@ -89,6 +94,7 @@ defmodule RateLimiterWeb.RateLimitController do
 
   Removes custom rate limiting configuration for a client (reverts to global config).
   """
+  @spec reset_client_config(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def reset_client_config(conn, %{"client_id" => client_id}) do
     with {:ok, client_id} <- validate_client_id(%{"client_id" => client_id}),
          :ok <- RateLimiter.RateLimiter.reset_client_config(client_id) do

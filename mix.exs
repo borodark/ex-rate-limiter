@@ -9,7 +9,12 @@ defmodule RateLimiter.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      dialyzer: [
+        plt_add_apps: [:ex_unit, :mix],
+        plt_core_path: "priv/plts",
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+      ]
     ]
   end
 
@@ -35,7 +40,9 @@ defmodule RateLimiter.MixProject do
       {:phoenix, "~> 1.7.21"},
       {:finch, "~> 0.13"},
       {:jason, "~> 1.2"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -43,7 +50,8 @@ defmodule RateLimiter.MixProject do
   defp aliases do
     [
       setup: ["deps.get"],
-      test: ["test"]
+      test: ["test"],
+      quality: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]
   end
 end

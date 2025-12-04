@@ -17,6 +17,20 @@ defmodule RateLimiter.RateLimiter do
   # Clean up every 30 seconds
   @cleanup_interval 30_000
 
+  # Type definitions
+  @type client_id :: String.t()
+  @type resource :: String.t()
+  @type timestamp :: integer()
+  @type config :: %{window_seconds: pos_integer(), requests_per_window: pos_integer()}
+  @type allowed_response :: %{allowed: true, remaining: non_neg_integer()}
+  @type denied_response :: %{allowed: false, remaining: 0, retry_after: non_neg_integer()}
+  @type rate_limit_response :: allowed_response() | denied_response()
+  @type state :: %{
+          clients: %{client_id() => [timestamp()]},
+          config: config(),
+          client_configs: %{client_id() => config()}
+        }
+
   # ============================================================================
   # Public API
   # ============================================================================
@@ -24,6 +38,7 @@ defmodule RateLimiter.RateLimiter do
   @doc """
   Starts the RateLimiter GenServer.
   """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -35,6 +50,7 @@ defmodule RateLimiter.RateLimiter do
   - {:ok, %{allowed: true, remaining: integer}} when request is allowed
   - {:ok, %{allowed: false, remaining: integer, retry_after: integer}} when request is denied
   """
+  @spec check_rate_limit(client_id(), resource()) :: {:ok, rate_limit_response()}
   def check_rate_limit(client_id, resource) do
     GenServer.call(__MODULE__, {:check_rate_limit, client_id, resource})
   end
@@ -44,6 +60,7 @@ defmodule RateLimiter.RateLimiter do
 
   Returns the updated configuration.
   """
+  @spec configure(pos_integer(), pos_integer()) :: {:ok, config()}
   def configure(window_seconds, requests_per_window) do
     GenServer.call(__MODULE__, {:configure, window_seconds, requests_per_window})
   end
@@ -53,6 +70,7 @@ defmodule RateLimiter.RateLimiter do
 
   Returns the client-specific configuration.
   """
+  @spec configure_client(client_id(), pos_integer(), pos_integer()) :: {:ok, config()}
   def configure_client(client_id, window_seconds, requests_per_window) do
     GenServer.call(
       __MODULE__,
@@ -63,6 +81,7 @@ defmodule RateLimiter.RateLimiter do
   @doc """
   Removes custom configuration for a client (falls back to global config).
   """
+  @spec reset_client_config(client_id()) :: :ok
   def reset_client_config(client_id) do
     GenServer.call(__MODULE__, {:reset_client_config, client_id})
   end
@@ -70,6 +89,7 @@ defmodule RateLimiter.RateLimiter do
   @doc """
   Gets current global configuration.
   """
+  @spec get_config() :: {:ok, config()}
   def get_config do
     GenServer.call(__MODULE__, :get_config)
   end
@@ -77,6 +97,7 @@ defmodule RateLimiter.RateLimiter do
   @doc """
   Gets configuration for a specific client (includes custom if set, else global).
   """
+  @spec get_client_config(client_id()) :: {:ok, config()}
   def get_client_config(client_id) do
     GenServer.call(__MODULE__, {:get_client_config, client_id})
   end
@@ -84,6 +105,7 @@ defmodule RateLimiter.RateLimiter do
   @doc """
   Resets all state (for testing only).
   """
+  @spec reset() :: :ok
   def reset do
     GenServer.call(__MODULE__, :reset)
   end
@@ -93,6 +115,7 @@ defmodule RateLimiter.RateLimiter do
   # ============================================================================
 
   @impl true
+  @spec init(keyword()) :: {:ok, state()}
   def init(_opts) do
     # Start cleanup timer
     schedule_cleanup()
@@ -251,6 +274,7 @@ defmodule RateLimiter.RateLimiter do
   # Private Helpers
   # ============================================================================
 
+  @spec schedule_cleanup() :: reference()
   defp schedule_cleanup do
     Process.send_after(self(), :cleanup, @cleanup_interval)
   end

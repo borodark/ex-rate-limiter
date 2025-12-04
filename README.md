@@ -278,8 +278,9 @@ curl -X POST http://localhost:4000/api/v1/ratelimit \
 - [x] Handles 1000+ req/s (achieved: 44,000+ req/s)
 - [x] < 10ms latency per decision (achieved: 0.010ms avg)
 - [x] Thread-safe concurrent requests (100% accurate)
-- [x] Well-tested (42 comprehensive tests)
+- [x] Well-tested (66 comprehensive tests)
 - [x] Well-documented (architecture, API, examples)
+- [x] Type-safe (Dialyzer type checking passes)
 
 ## Project Structure
 
@@ -318,6 +319,15 @@ RateLimiter.RateLimiter.configure(60, 100)
 
 # Get config
 RateLimiter.RateLimiter.get_config()
+```
+
+Type checking with Dialyzer:
+```bash
+# Build PLT (first time only)
+mix dialyzer --plt
+
+# Run type checking
+mix dialyzer
 ```
 
 ## Further Reading

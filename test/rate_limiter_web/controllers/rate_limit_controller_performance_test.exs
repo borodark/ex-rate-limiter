@@ -159,10 +159,11 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
       # Test response time for 100 health checks
       start_time = System.monotonic_time(:millisecond)
 
-      results = Enum.map(1..100, fn _ ->
-        {:ok, status, _body} = http_get("/api/v1/health")
-        status
-      end)
+      results =
+        Enum.map(1..100, fn _ ->
+          {:ok, status, _body} = http_get("/api/v1/health")
+          status
+        end)
 
       elapsed = System.monotonic_time(:millisecond) - start_time
       avg_latency = elapsed / 100
@@ -395,7 +396,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   describe "accuracy under concurrent HTTP load" do
     test "maintains accurate counting with concurrent HTTP requests" do
       # Use a unique client ID to avoid cross-test interference
-      unique_client = "stress_client_#{:rand.uniform(100000)}"
+      unique_client = "stress_client_#{:rand.uniform(100_000)}"
 
       http_post("/api/v1/configure", %{
         "window_seconds" => 60,

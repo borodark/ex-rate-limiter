@@ -38,6 +38,59 @@ defmodule RateLimiterWeb.RateLimitController do
     end
   end
 
+  @doc """
+  POST /api/v1/configure-client
+
+  Sets custom rate limiting configuration for a specific client.
+  """
+  def configure_client(conn, params) do
+    with {:ok, client_id} <- validate_client_id(params),
+         {:ok, window} <- validate_window(params),
+         {:ok, limit} <- validate_limit(params),
+         {:ok, config} <- RateLimiter.RateLimiter.configure_client(client_id, window, limit) do
+      json(conn, config)
+    else
+      {:error, message} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: message})
+    end
+  end
+
+  @doc """
+  GET /api/v1/client-config/:client_id
+
+  Gets the rate limiting configuration for a specific client.
+  """
+  def get_client_config(conn, %{"client_id" => client_id}) do
+    with {:ok, client_id} <- validate_client_id(%{"client_id" => client_id}),
+         {:ok, config} <- RateLimiter.RateLimiter.get_client_config(client_id) do
+      json(conn, config)
+    else
+      {:error, message} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: message})
+    end
+  end
+
+  @doc """
+  DELETE /api/v1/client-config/:client_id
+
+  Removes custom rate limiting configuration for a client (reverts to global config).
+  """
+  def reset_client_config(conn, %{"client_id" => client_id}) do
+    with {:ok, client_id} <- validate_client_id(%{"client_id" => client_id}),
+         :ok <- RateLimiter.RateLimiter.reset_client_config(client_id) do
+      json(conn, %{status: "ok", message: "Client configuration reset"})
+    else
+      {:error, message} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: message})
+    end
+  end
+
   # ============================================================================
   # Validation Helpers
   # ============================================================================

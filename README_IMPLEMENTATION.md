@@ -98,7 +98,7 @@ curl -X POST http://localhost:4000/api/v1/ratelimit \
   -d '{"client_id": "user123", "resource": "api"}'
 ```
 
-### 2. Configure Rate Limit
+### 2. Configure Global Rate Limit
 
 **Endpoint:** `POST /api/v1/configure`
 
@@ -125,6 +125,74 @@ curl -X POST http://localhost:4000/api/v1/configure \
   -d '{"window_seconds": 60, "request_per_window": 100}'
 ```
 
+### 3. Configure Per-Client Rate Limit
+
+**Endpoint:** `POST /api/v1/configure-client`
+
+Set custom rate limits for specific clients (VIP users, partners, rate escalation, etc.).
+
+**Request:**
+```json
+{
+  "client_id": "vip_client",
+  "window_seconds": 60,
+  "request_per_window": 1000
+}
+```
+
+**Response:**
+```json
+{
+  "window_seconds": 60,
+  "request_per_window": 1000
+}
+```
+
+**Example with curl:**
+```bash
+curl -X POST http://localhost:4000/api/v1/configure-client \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "vip_client", "window_seconds": 60, "request_per_window": 1000}'
+```
+
+### 4. Get Client Configuration
+
+**Endpoint:** `GET /api/v1/client-config/:client_id`
+
+Retrieve the rate limit configuration for a specific client (returns custom config if set, else global config).
+
+**Response:**
+```json
+{
+  "window_seconds": 60,
+  "request_per_window": 1000
+}
+```
+
+**Example with curl:**
+```bash
+curl http://localhost:4000/api/v1/client-config/vip_client
+```
+
+### 5. Reset Client Configuration
+
+**Endpoint:** `DELETE /api/v1/client-config/:client_id`
+
+Remove custom configuration for a client (reverts to global config).
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "message": "Client configuration reset"
+}
+```
+
+**Example with curl:**
+```bash
+curl -X DELETE http://localhost:4000/api/v1/client-config/vip_client
+```
+
 ## Testing
 
 ### Run All Tests
@@ -145,13 +213,19 @@ mix test --cover
 
 ### Test Suite Overview
 
-**Unit Tests (21 tests)** - `test/rate_limiter_test.exs`
+**Unit Tests (27 tests)** - `test/rate_limiter_test.exs`
 - Basic functionality (allows/denies requests)
 - Configuration management
 - Per-client isolation
 - Window expiration
 - Concurrent access patterns
 - Edge cases (special characters, large limits, etc.)
+- Per-client custom configuration (6 new tests)
+  - Setting custom limits per client
+  - Global config fallback
+  - Different limits for different clients
+  - Getting/resetting client configurations
+  - Multiple windows with different clients
 
 **Performance Tests (11 tests)** - `test/rate_limiter_performance_test.exs`
 - Throughput: 38,461 req/s (requirement: 1000+)
@@ -160,11 +234,17 @@ mix test --cover
 - Consistency: 100% accurate under stress
 - Memory efficiency: Handles 1000+ clients
 
-**Integration Tests (10 tests)** - `test/rate_limiter_web/controllers/rate_limit_controller_test.exs`
+**Integration Tests (16 tests)** - `test/rate_limiter_web/controllers/rate_limit_controller_test.exs`
 - End-to-end workflows
 - Configuration application
 - Response structure validation
 - Multi-client scenarios
+- Per-client configuration endpoints (6 new tests)
+  - Custom limits per client
+  - Configuration override behavior
+  - Getting client configurations
+  - Resetting to global config
+  - Multiple clients with different configs
 
 ### Running Load Tests
 
@@ -260,17 +340,47 @@ def configure(window_seconds, requests_per_window):
     )
     return response.json()
 
+def configure_client(client_id, window_seconds, requests_per_window):
+    response = requests.post(
+        f"{BASE_URL}/configure-client",
+        json={
+            "client_id": client_id,
+            "window_seconds": window_seconds,
+            "request_per_window": requests_per_window
+        },
+        headers={"Content-Type": "application/json"}
+    )
+    return response.json()
+
+def get_client_config(client_id):
+    response = requests.get(
+        f"{BASE_URL}/client-config/{client_id}",
+        headers={"Content-Type": "application/json"}
+    )
+    return response.json()
+
 # Example usage
 if __name__ == "__main__":
-    # Configure limits
+    # Configure global limits
     config = configure(60, 10)
-    print(f"Config: {config}")
+    print(f"Global Config: {config}")
 
-    # Check rate limit
-    for i in range(15):
-        result = check_limit("user123", "api")
-        print(f"Request {i+1}: {'✓ Allowed' if result['allowed'] else '✗ Denied'} "
-              f"(remaining: {result['remaining']})")
+    # Configure VIP client with higher limit
+    vip_config = configure_client("vip_user", 60, 100)
+    print(f"VIP Config: {vip_config}")
+
+    # Check rate limits
+    print("\nRegular user:")
+    for i in range(12):
+        result = check_limit("regular_user", "api")
+        status = '✓ Allowed' if result['allowed'] else '✗ Denied'
+        print(f"  Request {i+1}: {status} (remaining: {result['remaining']})")
+
+    print("\nVIP user:")
+    for i in range(12):
+        result = check_limit("vip_user", "api")
+        status = '✓ Allowed' if result['allowed'] else '✗ Denied'
+        print(f"  Request {i+1}: {status} (remaining: {result['remaining']})")
 ```
 
 ### JavaScript/Node.js Client

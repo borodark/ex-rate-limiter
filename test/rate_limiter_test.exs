@@ -315,4 +315,172 @@ defmodule RateLimiterTest do
       assert response.remaining == 99
     end
   end
+
+  describe "per-client custom configuration" do
+    test "configure_client sets custom limit for specific client" do
+      # Set global config
+      {:ok, _} = RateLimiter.RateLimiter.configure(60, 10)
+
+      # Set custom limit for client_a: 5 requests per 60 seconds
+      {:ok, config} = RateLimiter.RateLimiter.configure_client("client_a", 60, 5)
+      assert config.window_seconds == 60
+      assert config.requests_per_window == 5
+
+      # Verify client_a has custom limit
+      for i <- 1..5 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("client_a", "resource")
+        assert response.allowed == true
+        assert response.remaining == 5 - i
+      end
+
+      # 6th request should be denied
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("client_a", "resource")
+      assert response.allowed == false
+      assert response.remaining == 0
+    end
+
+    test "global config still applies to non-configured clients" do
+      # Set global config
+      {:ok, _} = RateLimiter.RateLimiter.configure(60, 10)
+
+      # Set custom limit for client_a
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("client_a", 60, 5)
+
+      # client_b should use global config (10 requests)
+      for i <- 1..10 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("client_b", "resource")
+        assert response.allowed == true
+        assert response.remaining == 10 - i
+      end
+
+      # 11th request should be denied
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("client_b", "resource")
+      assert response.allowed == false
+      assert response.remaining == 0
+    end
+
+    test "different clients can have different limits" do
+      # Set global config
+      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100)
+
+      # Set different limits for different clients
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("vip_client", 60, 50)
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("basic_client", 60, 5)
+
+      # VIP client can make 50 requests
+      for _ <- 1..50 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("vip_client", "resource")
+        assert response.allowed == true
+      end
+
+      # 51st request denied for VIP
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("vip_client", "resource")
+      assert response.allowed == false
+
+      # Basic client limited to 5 requests
+      for _ <- 1..5 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("basic_client", "resource")
+        assert response.allowed == true
+      end
+
+      # 6th request denied for basic
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("basic_client", "resource")
+      assert response.allowed == false
+    end
+
+    test "get_client_config returns custom config if set" do
+      # Set global config
+      {:ok, global_config} = RateLimiter.RateLimiter.configure(60, 100)
+
+      # Get config for unconfigured client (should return global)
+      {:ok, config} = RateLimiter.RateLimiter.get_client_config("unconfigured")
+      assert config == global_config
+
+      # Set custom config
+      {:ok, custom_config} = RateLimiter.RateLimiter.configure_client("configured", 30, 50)
+
+      # Get config for configured client (should return custom)
+      {:ok, config} = RateLimiter.RateLimiter.get_client_config("configured")
+      assert config == custom_config
+      assert config.window_seconds == 30
+      assert config.requests_per_window == 50
+    end
+
+    test "reset_client_config reverts to global config" do
+      # Set global config
+      {:ok, global_config} = RateLimiter.RateLimiter.configure(60, 100)
+
+      # Set custom config
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("client_x", 30, 50)
+
+      # Verify custom config is active
+      {:ok, config} = RateLimiter.RateLimiter.get_client_config("client_x")
+      assert config.window_seconds == 30
+
+      # Reset client config
+      :ok = RateLimiter.RateLimiter.reset_client_config("client_x")
+
+      # Verify reverted to global config
+      {:ok, config} = RateLimiter.RateLimiter.get_client_config("client_x")
+      assert config == global_config
+    end
+
+    test "multiple clients with different windows work correctly" do
+      # Set global config with 60 second window
+      {:ok, _} = RateLimiter.RateLimiter.configure(60, 10)
+
+      # Set fast client with 1 second window
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("fast_client", 1, 5)
+
+      # Fast client can make 5 requests quickly
+      for _ <- 1..5 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("fast_client", "resource")
+        assert response.allowed == true
+      end
+
+      # 6th request denied
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("fast_client", "resource")
+      assert response.allowed == false
+
+      # Wait for 1 second (fast client's window expires)
+      Process.sleep(1100)
+
+      # Now fast client can make requests again
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("fast_client", "resource")
+      assert response.allowed == true
+      assert response.remaining == 4
+
+      # Normal client still uses 60 second window
+      for _ <- 1..10 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("normal_client", "resource")
+        assert response.allowed == true
+      end
+
+      {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("normal_client", "resource")
+      assert response.allowed == false
+    end
+
+    test "configuring same client multiple times updates config" do
+      {:ok, _} = RateLimiter.RateLimiter.configure(60, 100)
+
+      # Set initial custom config
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("dynamic_client", 60, 5)
+
+      # Use 3 requests
+      for _ <- 1..3 do
+        RateLimiter.RateLimiter.check_rate_limit("dynamic_client", "resource")
+      end
+
+      # Reconfigure with higher limit
+      {:ok, _} = RateLimiter.RateLimiter.configure_client("dynamic_client", 60, 20)
+
+      # New config takes effect - can now make more requests
+      for i <- 4..20 do
+        {:ok, response} = RateLimiter.RateLimiter.check_rate_limit("dynamic_client", "resource")
+        assert response.allowed == true
+        # Remaining should be based on new limit, but old timestamp still counts
+        assert response.remaining <= (20 - i)
+      end
+    end
+  end
 end

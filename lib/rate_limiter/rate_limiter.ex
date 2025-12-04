@@ -6,7 +6,6 @@ defmodule RateLimiter.RateLimiter do
   ## Overview
   - Tracks request timestamps in a sliding window per client
   - Automatically cleans up expired entries to prevent memory leaks
-  - Thread-safe concurrent access via GenServer
   - Configurable time window and request limit
   """
 
@@ -40,7 +39,7 @@ defmodule RateLimiter.RateLimiter do
   end
 
   @doc """
-  Updates the rate limiting configuration.
+  Updates the global rate limiting configuration.
 
   Returns the updated configuration.
   """
@@ -49,10 +48,33 @@ defmodule RateLimiter.RateLimiter do
   end
 
   @doc """
-  Gets current configuration.
+  Sets a custom rate limit configuration for a specific client.
+
+  Returns the client-specific configuration.
+  """
+  def configure_client(client_id, window_seconds, requests_per_window) do
+    GenServer.call(__MODULE__, {:configure_client, client_id, window_seconds, requests_per_window})
+  end
+
+  @doc """
+  Removes custom configuration for a client (falls back to global config).
+  """
+  def reset_client_config(client_id) do
+    GenServer.call(__MODULE__, {:reset_client_config, client_id})
+  end
+
+  @doc """
+  Gets current global configuration.
   """
   def get_config do
     GenServer.call(__MODULE__, :get_config)
+  end
+
+  @doc """
+  Gets configuration for a specific client (includes custom if set, else global).
+  """
+  def get_client_config(client_id) do
+    GenServer.call(__MODULE__, {:get_client_config, client_id})
   end
 
   @doc """
@@ -78,7 +100,9 @@ defmodule RateLimiter.RateLimiter do
       config: %{
         window_seconds: @default_window_seconds,
         requests_per_window: @default_requests_per_window
-      }
+      },
+      # Per-client custom configuration (overrides global): %{client_id => %{window_seconds: ..., requests_per_window: ...}}
+      client_configs: %{}
     }
 
     {:ok, state}
@@ -91,13 +115,16 @@ defmodule RateLimiter.RateLimiter do
     # Get or initialize client's request list
     timestamps = Map.get(state.clients, client_id, [])
 
+    # Get the configuration for this client (use custom if set, else global)
+    client_config = Map.get(state.client_configs, client_id, state.config)
+    window_ms = client_config.window_seconds * 1000
+    limit = client_config.requests_per_window
+
     # Clean up old timestamps outside the window
-    window_ms = state.config.window_seconds * 1000
     clean_timestamps = Enum.filter(timestamps, &((now - &1) < window_ms))
 
     # Check if we're under the limit
     requests_count = length(clean_timestamps)
-    limit = state.config.requests_per_window
 
     if requests_count < limit do
       # Allow the request
@@ -140,6 +167,33 @@ defmodule RateLimiter.RateLimiter do
   end
 
   @impl true
+  def handle_call({:configure_client, client_id, window_seconds, requests_per_window}, _from, state) do
+    client_config = %{
+      window_seconds: window_seconds,
+      requests_per_window: requests_per_window
+    }
+    new_client_configs = Map.put(state.client_configs, client_id, client_config)
+    new_state = %{state | client_configs: new_client_configs}
+
+    {:reply, {:ok, client_config}, new_state}
+  end
+
+  @impl true
+  def handle_call({:reset_client_config, client_id}, _from, state) do
+    new_client_configs = Map.delete(state.client_configs, client_id)
+    new_state = %{state | client_configs: new_client_configs}
+
+    {:reply, :ok, new_state}
+  end
+
+  @impl true
+  def handle_call({:get_client_config, client_id}, _from, state) do
+    # Return client-specific config if set, else global config
+    config = Map.get(state.client_configs, client_id, state.config)
+    {:reply, {:ok, config}, state}
+  end
+
+  @impl true
   def handle_call(:get_config, _from, state) do
     {:reply, {:ok, state.config}, state}
   end
@@ -151,7 +205,8 @@ defmodule RateLimiter.RateLimiter do
       config: %{
         window_seconds: @default_window_seconds,
         requests_per_window: @default_requests_per_window
-      }
+      },
+      client_configs: %{}
     }
 
     {:reply, :ok, state}

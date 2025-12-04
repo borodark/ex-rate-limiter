@@ -72,13 +72,34 @@ POST /api/v1/ratelimit
 }
 ```
 
-### Configure Limits
+### Configure Global Limits
 ```bash
 POST /api/v1/configure
 {
   "window_seconds": 60,
   "request_per_window": 100
 }
+```
+
+### Configure Per-Client Limits
+Set custom limits for specific clients (VIP users, partners, etc.):
+```bash
+POST /api/v1/configure-client
+{
+  "client_id": "vip_user",
+  "window_seconds": 60,
+  "request_per_window": 500
+}
+```
+
+### Get Client Configuration
+```bash
+GET /api/v1/client-config/vip_user
+```
+
+### Reset Client Configuration
+```bash
+DELETE /api/v1/client-config/vip_user
 ```
 
 ## Documentation
@@ -196,6 +217,7 @@ curl -X POST http://localhost:4000/api/v1/ratelimit \
 - [x] POST /api/v1/configure endpoint
 - [x] Per-client rate limits
 - [x] Configurable time windows and request limits
+- [x] Per-client custom configuration (VIP/restricted clients)
 
 ### Non-Functional Requirements ✅
 - [x] Handles 1000+ req/s (achieved: 38,461 req/s)

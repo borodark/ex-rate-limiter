@@ -105,29 +105,37 @@ DELETE /api/v1/client-config/vip_user
 ## Documentation
 
 - **[README_IMPLEMENTATION.md](./README_IMPLEMENTATION.md)** - Complete build/run/deploy guide
+- **[DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md)** - Docker & container deployment guide
 - **[DESIGN.md](../DESIGN.md)** - Architecture & design decisions
 - **[Tests](./test/)** - Runnable examples and test cases
 
 ## Testing
 
 ```bash
-# All tests
+# All tests (includes HTTP performance tests)
 mix test
+
+# Exclude HTTP performance tests (faster)
+mix test --exclude http_performance
 
 # Unit tests only
 mix test test/rate_limiter_test.exs
 
-# Performance benchmarks
+# GenServer performance tests
 mix test test/rate_limiter_performance_test.exs
+
+# HTTP performance tests only
+mix test test/rate_limiter_web/controllers/rate_limit_controller_performance_test.exs
 
 # Integration tests
 mix test test/rate_limiter_web/
 ```
 
-### Test Coverage
+### Test Coverage (64 tests total)
 - **21 Unit Tests** - Core algorithm, concurrency, edge cases
-- **10 Integration Tests** - End-to-end workflows
-- **11 Performance Tests** - Throughput, latency, scalability
+- **22 Integration Tests** - End-to-end workflows, per-client configs
+- **11 GenServer Performance Tests** - Direct GenServer throughput, latency, scalability
+- **10 HTTP Performance Tests** - Full HTTP stack performance (JSON, routing, network)
 
 ## Performance
 
@@ -163,11 +171,23 @@ mix test test/rate_limiter_web/
 
 ## Deployment
 
-### Docker
+### Docker (Recommended)
+
+Using Docker Compose:
+```bash
+docker compose up -d --build
+```
+
+Or using Docker directly:
 ```bash
 docker build -t rate-limiter .
-docker run -p 4000:4000 rate-limiter
+docker run -d -p 4000:4000 \
+  -e PHX_SERVER=true \
+  -e SECRET_KEY_BASE=your_secret_here \
+  rate-limiter:latest
 ```
+
+See **[DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md)** for complete Docker deployment guide.
 
 ### Systemd
 ```bash

@@ -33,7 +33,6 @@ defmodule RateLimiter.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.7.21"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:finch, "~> 0.13"},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}

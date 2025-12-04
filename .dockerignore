@@ -1,0 +1,41 @@
+# Elixir build artifacts
+/_build
+/deps
+*.ez
+
+# Test files
+/test
+/cover
+
+# Documentation
+/doc
+*.md
+!README.md
+
+# Git
+.git
+.gitignore
+
+# Editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files
+Dockerfile
+.dockerignore
+compose.yaml
+
+# Environment files
+.env
+.env.*
+
+# Development files
+.elixir_ls
+.mix

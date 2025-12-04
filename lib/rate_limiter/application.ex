@@ -8,7 +8,6 @@ defmodule RateLimiter.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {Phoenix.PubSub, name: RateLimiter.PubSub},
       RateLimiter.RateLimiter,
       RateLimiterWeb.Endpoint
     ]

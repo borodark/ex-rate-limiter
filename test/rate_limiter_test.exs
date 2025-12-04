@@ -1,5 +1,5 @@
 defmodule RateLimiterTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   setup do
     # RateLimiter is started by the application supervision tree

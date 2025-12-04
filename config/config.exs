@@ -14,8 +14,7 @@ config :rate_limiter, RateLimiterWeb.Endpoint,
   render_errors: [
     formats: [json: RateLimiterWeb.ErrorJSON],
     layout: false
-  ],
-  pubsub_server: RateLimiter.PubSub
+  ]
 
 # Configures Elixir's Logger
 config :logger, :console,

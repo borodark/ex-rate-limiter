@@ -147,6 +147,36 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   #   end
   # end
 
+  describe "HTTP health endpoint" do
+    test "GET /api/v1/health returns 200 OK" do
+      {:ok, status, body} = http_get("/api/v1/health")
+
+      assert status == 200
+      assert body["status"] == "ok"
+    end
+
+    test "health endpoint responds quickly" do
+      # Test response time for 100 health checks
+      start_time = System.monotonic_time(:millisecond)
+
+      results = Enum.map(1..100, fn _ ->
+        {:ok, status, _body} = http_get("/api/v1/health")
+        status
+      end)
+
+      elapsed = System.monotonic_time(:millisecond) - start_time
+      avg_latency = elapsed / 100
+
+      # All should return 200
+      assert Enum.all?(results, &(&1 == 200))
+
+      # Average latency should be very low (under 5ms)
+      assert avg_latency < 5.0
+
+      IO.puts("\n  Health endpoint average latency: #{Float.round(avg_latency, 3)}ms")
+    end
+  end
+
   describe "HTTP endpoint throughput" do
     test "POST /api/v1/ratelimit handles high throughput" do
       start_time = System.monotonic_time(:millisecond)

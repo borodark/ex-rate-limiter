@@ -9,7 +9,7 @@ config :rate_limiter,
 
 # Configures the endpoint
 config :rate_limiter, RateLimiterWeb.Endpoint,
-  url: [host: "localhost"],
+  url: [host: "0.0.0.0"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [json: RateLimiterWeb.ErrorJSON],

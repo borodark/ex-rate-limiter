@@ -3,6 +3,16 @@ defmodule RateLimiterWeb.RateLimitController do
   require Logger
 
   @doc """
+  GET /api/v1/health
+
+  Health check endpoint for monitoring and load balancers.
+  Returns 200 OK if the service is running.
+  """
+  def health(conn, _params) do
+    json(conn, %{status: "ok"})
+  end
+
+  @doc """
   POST /api/v1/ratelimit
 
   Checks if a request from a client should be allowed.

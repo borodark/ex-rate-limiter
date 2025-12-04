@@ -2,6 +2,29 @@
 
 A high-performance rate limiter service built in Elixir with Phoenix, achieving **44,000+ req/s throughput** and **sub-millisecond latency**.
 
+
+## TL;DR
+
+
+Start using Docker Compose:
+
+```bash
+docker compose up -d --build
+```
+
+Use Python to test:
+
+```python
+import requests
+
+response = requests.post(
+    'http://localhost:4000/api/v1/ratelimit',
+    json={'client_id': 'user123', 'resource': 'api'},
+    headers={'Content-Type': 'application/json'}
+)
+print(response.json())
+```
+
 ## Features
 
 ✅ **Performance**
@@ -45,6 +68,18 @@ mix phx.server
 Server runs on `http://localhost:4000`
 
 ## API Overview
+
+### Health Check
+```bash
+GET /api/v1/health
+```
+
+**Response:**
+```json
+{
+  "status": "ok"
+}
+```
 
 ### Check Rate Limit
 ```bash
@@ -131,11 +166,11 @@ mix test test/rate_limiter_web/controllers/rate_limit_controller_performance_tes
 mix test test/rate_limiter_web/
 ```
 
-### Test Coverage (64 tests total)
+### Test Coverage (66 tests total)
 - **21 Unit Tests** - Core algorithm, concurrency, edge cases
 - **22 Integration Tests** - End-to-end workflows, per-client configs
 - **11 GenServer Performance Tests** - Direct GenServer throughput, latency, scalability
-- **10 HTTP Performance Tests** - Full HTTP stack performance (JSON, routing, network)
+- **12 HTTP Performance Tests** - Full HTTP stack performance (JSON, routing, network, health endpoint)
 
 ## Performance
 

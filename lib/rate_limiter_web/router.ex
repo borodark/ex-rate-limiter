@@ -8,6 +8,7 @@ defmodule RateLimiterWeb.Router do
   scope "/api/v1", RateLimiterWeb do
     pipe_through :api
 
+    get "/health", RateLimitController, :health
     post "/ratelimit", RateLimitController, :check
     post "/configure", RateLimitController, :configure
     post "/configure-client", RateLimitController, :configure_client

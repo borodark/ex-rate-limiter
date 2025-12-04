@@ -22,11 +22,11 @@ All requirements met and documented. Ready for production deployment.
 | **Throughput** | 1,000+ req/s | **44,000+ req/s** | ✅ 44x faster |
 | **Latency** | < 10ms | **0.010ms avg** | ✅ 1000x faster |
 | **Concurrent Requests** | Thread-safe | **100% accurate** | ✅ Perfect |
-| **Code Quality** | Well-tested | **64 tests** | ✅ Comprehensive |
+| **Code Quality** | Well-tested | **66 tests** | ✅ Comprehensive |
 
 ### Test Coverage
 
-**Total: 64 Tests, 0 Failures**
+**Total: 66 Tests, 0 Failures**
 
 1. **Unit Tests (21)** - `test/rate_limiter_test.exs`
    - Core algorithm correctness
@@ -45,7 +45,8 @@ All requirements met and documented. Ready for production deployment.
    - Scalability verification (50,000 concurrent requests)
    - Memory efficiency
 
-4. **HTTP Performance Tests (10)** - `test/rate_limiter_web/controllers/rate_limit_controller_performance_test.exs`
+4. **HTTP Performance Tests (12)** - `test/rate_limiter_web/controllers/rate_limit_controller_performance_test.exs`
+   - Health endpoint tests (2 tests)
    - HTTP endpoint throughput (2,000-11,000 req/s)
    - HTTP latency (0.6-1.0ms avg)
    - Full stack integration (JSON, routing, network)
@@ -201,7 +202,7 @@ curl -X POST http://localhost:4000/api/v1/ratelimit \
 - Stress tests confirm consistency
 
 ✅ **Well-tested code**
-- 64 tests, 0 failures
+- 66 tests, 0 failures
 - Unit, integration, GenServer performance, and HTTP performance tests
 - Edge cases and stress scenarios covered
 
@@ -285,3 +286,12 @@ The implementation demonstrates best practices in:
 - Production-grade software engineering
 
 **Ready for immediate deployment and use.**
+
+## API Endpoints
+
+1. **GET /api/v1/health** - Health check endpoint
+2. **POST /api/v1/ratelimit** - Check if request is allowed
+3. **POST /api/v1/configure** - Update global rate limit configuration
+4. **POST /api/v1/configure-client** - Set per-client rate limits
+5. **GET /api/v1/client-config/:client_id** - Get client configuration
+6. **DELETE /api/v1/client-config/:client_id** - Reset client configuration

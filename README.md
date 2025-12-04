@@ -141,7 +141,7 @@ DELETE /api/v1/client-config/vip_user
 
 - **[README_IMPLEMENTATION.md](./README_IMPLEMENTATION.md)** - Complete build/run/deploy guide
 - **[DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md)** - Docker & container deployment guide
-- **[DESIGN.md](../DESIGN.md)** - Architecture & design decisions
+- **[DESIGN.md](./DESIGN.md)** - Architecture & design decisions
 - **[Tests](./test/)** - Runnable examples and test cases
 
 ## Testing

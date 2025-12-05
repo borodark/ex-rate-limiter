@@ -1,6 +1,5 @@
 defmodule RateLimiterWeb.RateLimitController do
   use RateLimiterWeb, :controller
-  require Logger
 
   @doc """
   GET /api/v1/health
@@ -25,10 +24,10 @@ defmodule RateLimiterWeb.RateLimitController do
          {:ok, response} <- RateLimiter.RateLimiter.check_rate_limit(client_id, resource) do
       json(conn, response)
     else
-      {:error, message} ->
+      {:error, _message} ->
         conn
         |> put_status(:bad_request)
-        |> json(%{error: message})
+        |> json(%{})
     end
   end
 

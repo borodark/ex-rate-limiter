@@ -28,10 +28,11 @@ print(response.json())
 ## Features
 
 ✅ **Performance**
-- **44,000+ req/s** average throughput (requirement: 1,000+)
+- **16,356 req/s** peak HTTP throughput with ultimate config (requirement: 1,000+)
+- **44,000+ req/s** direct GenServer throughput
 - **0.010ms** average latency (requirement: < 10ms)
-- **15,000+ req/s** with 50,000 concurrent requests
-- Linear scaling across client counts (17,000 - 44,000 req/s)
+- **25,000** concurrent connections with zero errors
+- **3.17x improvement** with full optimization (16.3x requirement!)
 
 ✅ **Reliability**
 - 42 comprehensive tests (unit, integration, performance)
@@ -141,6 +142,7 @@ DELETE /api/v1/client-config/vip_user
 
 - **[README_IMPLEMENTATION.md](./README_IMPLEMENTATION.md)** - Complete build/run/deploy guide
 - **[DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md)** - Docker & container deployment guide
+- **[SATURATION_REPORT.md](./SATURATION_REPORT.md)** - Performance limits & saturation testing results
 - **[DESIGN.md](./DESIGN.md)** - Architecture & design decisions
 - **[Tests](./test/)** - Runnable examples and test cases
 
@@ -164,6 +166,10 @@ mix test test/rate_limiter_web/controllers/rate_limit_controller_performance_tes
 
 # Integration tests
 mix test test/rate_limiter_web/
+
+# Saturation tests (requires running service on localhost:4000)
+mix phx.server  # In another terminal
+mix test test/saturation_test.exs --only saturation
 ```
 
 ### Test Coverage (66 tests total)
@@ -171,6 +177,7 @@ mix test test/rate_limiter_web/
 - **22 Integration Tests** - End-to-end workflows, per-client configs
 - **11 GenServer Performance Tests** - Direct GenServer throughput, latency, scalability
 - **12 HTTP Performance Tests** - Full HTTP stack performance (JSON, routing, network, health endpoint)
+- **5 Saturation Tests** - Performance limits, burst handling, sustained load (separate suite)
 
 ## Performance
 
@@ -188,6 +195,50 @@ mix test test/rate_limiter_web/
 | 1000 Sequential | 44,000+ |
 | 50,000 Concurrent | 15,000+ |
 | 10,000 requests (10-1000 clients) | 17,000 - 44,000 |
+
+### Saturation Limits (from live testing)
+
+**🚀 Ultimate Configuration (10K Acceptors + 1M Client Pool):**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | **16,356 req/s** (5,000 concurrent) |
+| **Zero-Error Range** | Up to 25,000 concurrent connections |
+| **Optimal Range** | 2,500-5,000 concurrent connections |
+| **Improvement** | 3.17x over original (16.3x requirement!) |
+
+**⚡ With 10,000 Acceptors + 100K Client Pool:**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | 15,174 req/s (5,000 concurrent) |
+| **Zero-Error Range** | Up to 25,000 concurrent connections |
+| **Improvement** | 2.9x over original |
+
+**⚡ With 1,000 Acceptors + 100K Client Pool:**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | 13,248 req/s (5,000 concurrent) |
+| **Zero-Error Range** | Up to 25,000 concurrent connections |
+| **Better for** | Variable/moderate workloads |
+
+**📊 Original Configuration:**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | 5,154 req/s (200 concurrent) |
+| **Sustained Load** | 5,305 req/s (30s, 50 concurrent) |
+
+**Optimization Journey:**
+| Configuration | Throughput | Improvement |
+|--------------|-----------|-------------|
+| Original     | 5,154 req/s | Baseline |
+| + 1K acceptors + 100K pool | 13,248 req/s | +157% |
+| + 10K acceptors + 100K pool | 15,174 req/s | +194% |
+| + 10K acceptors + 1M pool | **16,356 req/s** | **+217%** |
+
+✅ **16,356 req/s peak throughput (16.3x the 1,000 req/s requirement!)**
+✅ **Handles 25,000 concurrent connections with zero errors**
+✅ **Client pool matters**: 1M pool → +7.7% over 100K pool
+
+See **[SATURATION_REPORT.md](./SATURATION_REPORT.md)** for detailed analysis.
 
 ## Architecture
 

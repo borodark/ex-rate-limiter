@@ -14,3 +14,6 @@ config :logger, :console, format: "[$level] $message\n"
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Do not print debug messages in production
+config :logger, level: :error

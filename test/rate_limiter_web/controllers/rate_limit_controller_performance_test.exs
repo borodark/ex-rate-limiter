@@ -61,7 +61,63 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
 
     # Start Finch for HTTP client
     {:ok, _finch_pid} =
-      case Finch.start_link(name: RateLimiter.Finch) do
+      case Finch.start_link(
+             name: RateLimiter.Finch,
+             pools: %{
+               default: [
+                 # Core pool settings (maximum concurrency)
+                 # Connections per pool
+                 size: 1024,
+                 # Number of pools (44 CPUs × ~12)
+                 count: 44,
+                 # Performance monitoring
+                 # Enable metrics collection
+                 start_pool_metrics?: true,
+
+                 # Connection options for maximum performance
+                 conn_opts: [
+                   # Timeout settings
+                   # 2 min connect timeout
+                   timeout: 120_000,
+
+                   # Network mode
+                   # Passive mode for high load
+                   mode: :passive,
+
+                   # Disable logging overhead
+                   log: false,
+
+                   # Transport options (passed to :gen_tcp)
+                   transport_opts: [
+                     # Critical latency optimizations
+                     # Disable Nagle's algorithm
+                     nodelay: true,
+                     # TCP keepalive
+                     keepalive: true,
+
+                     # Large buffers for maximum throughput (1MB each)
+                     sndbuf: 1_048_576,
+                     recbuf: 1_048_576,
+                     buffer: 1_048_576,
+
+                     # Timeout settings
+                     send_timeout: 60_000,
+                     send_timeout_close: true,
+
+                     # Socket settings for performance
+                     packet: :raw,
+                     mode: :binary,
+                     active: false,
+                     reuseaddr: true,
+
+                     # Message queue management
+                     high_msgq_watermark: 16_384,
+                     low_msgq_watermark: 8_192
+                   ]
+                 ]
+               ]
+             }
+           ) do
         {:ok, pid} -> {:ok, pid}
         {:error, {:already_started, pid}} -> {:ok, pid}
       end

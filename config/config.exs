@@ -37,9 +37,9 @@ config :rate_limiter, RateLimiterWeb.Endpoint,
     thousand_island_options: [
       # Acceptor configuration
       # High concurrency
-      num_acceptors: 44,
+      num_acceptors: 176,
       # Max per acceptor
-      num_connections: 16_384,
+      num_connections: 65_536,
 
       # Retry and timeout settings
       max_connections_retry_wait: 1000,

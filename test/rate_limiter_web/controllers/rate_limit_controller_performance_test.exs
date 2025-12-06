@@ -21,13 +21,13 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
     # Wait for endpoint to fully stop
     Process.sleep(100)
 
-    # Configure endpoint to run server on port 4002
+    # Configure endpoint to run server on port 4000
     Application.put_env(:rate_limiter, RateLimiterWeb.Endpoint,
       adapter: Bandit.PhoenixAdapter,
-      http: [port: 4002],
+      http: [port: 4000],
       server: true,
       secret_key_base: "test_secret_key_base_for_testing_only_min_64_chars_required_here",
-      url: [host: "localhost"],
+      url: [host: "192.168.0.81"],
       render_errors: [
         formats: [json: RateLimiterWeb.ErrorJSON],
         layout: false
@@ -126,13 +126,13 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
     Process.sleep(1000)
 
     # Verify server is listening
-    case :gen_tcp.connect(~c"localhost", 4002, [], 1000) do
+    case :gen_tcp.connect(~c"192.168.0.81", 4000, [], 1000) do
       {:ok, socket} ->
         :gen_tcp.close(socket)
-        IO.puts("\n✓ HTTP server started successfully on port 4002")
+        IO.puts("\n✓ HTTP server started successfully on port 4000")
 
       {:error, reason} ->
-        IO.puts("\n✗ WARNING: HTTP server not responding on port 4002: #{inspect(reason)}")
+        IO.puts("\n✗ WARNING: HTTP server not responding on port 4000: #{inspect(reason)}")
         IO.puts("  HTTP performance tests may fail with connection errors")
     end
 
@@ -159,7 +159,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   defp http_post(path, body) do
-    url = "http://localhost:4002#{path}"
+    url = "http://192.168.0.81:4000#{path}"
 
     case Finch.build(:post, url, [{"content-type", "application/json"}], Jason.encode!(body))
          |> Finch.request(RateLimiter.Finch) do
@@ -176,7 +176,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   defp http_get(path) do
-    url = "http://localhost:4002#{path}"
+    url = "http://192.168.0.81:4000#{path}"
 
     case Finch.build(:get, url) |> Finch.request(RateLimiter.Finch) do
       {:ok, %{status: status, body: response_body}} ->
@@ -192,7 +192,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   # defp http_delete(path) do
-  #   url = "http://localhost:4000#{path}"
+  #   url = "http://192.168.0.81:4000#{path}"
   #
   #   case Finch.build(:delete, url) |> Finch.request(RateLimiter.Finch) do
   #     {:ok, %{status: status, body: response_body}} ->

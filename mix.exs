@@ -24,7 +24,7 @@ defmodule RateLimiter.MixProject do
   def application do
     [
       mod: {RateLimiter.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -38,6 +38,8 @@ defmodule RateLimiter.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.7.21"},
+      {:phoenix_live_dashboard, "~> 0.8"},
+      {:telemetry_poller, "~> 1.0"},
       {:finch, "~> 0.13"},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},

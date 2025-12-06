@@ -21,7 +21,7 @@ defmodule RateLimiter.SaturationTest do
 
   # Test configuration
   # Use IP address instead of hostname to avoid DNS resolution bottleneck
-  @base_url "http://127.0.0.1:4000"
+  @base_url "http://192.168.0.249:4000"
   @health_endpoint "#{@base_url}/api/v1/health"
   @ratelimit_endpoint "#{@base_url}/api/v1/ratelimit"
 

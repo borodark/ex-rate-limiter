@@ -9,56 +9,6 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
 
   # Start the application for HTTP testing
   setup_all do
-    # Save original config
-    original_config = Application.get_env(:rate_limiter, RateLimiterWeb.Endpoint)
-
-    # Stop endpoint if it's already running with wrong config
-    case Process.whereis(RateLimiterWeb.Endpoint) do
-      nil -> :ok
-      pid -> Supervisor.stop(pid, :normal, 5000)
-    end
-
-    # Wait for endpoint to fully stop
-    Process.sleep(100)
-
-    # Configure endpoint to run server on port 4000
-    Application.put_env(:rate_limiter, RateLimiterWeb.Endpoint,
-      adapter: Bandit.PhoenixAdapter,
-      http: [port: 4000],
-      server: true,
-      secret_key_base: "test_secret_key_base_for_testing_only_min_64_chars_required_here",
-      url: [host: "192.168.0.81"],
-      render_errors: [
-        formats: [json: RateLimiterWeb.ErrorJSON],
-        layout: false
-      ]
-    )
-
-    # Ensure the app is started
-    Application.ensure_all_started(:rate_limiter)
-
-    # Start the endpoint with new config
-    endpoint_pid =
-      case RateLimiterWeb.Endpoint.start_link() do
-        {:ok, pid} ->
-          pid
-
-        {:error, {:already_started, pid}} ->
-          # Restart with new config
-          try do
-            Supervisor.stop(pid, :normal, 5000)
-          rescue
-            _ -> :ok
-          end
-
-          Process.sleep(200)
-
-          case RateLimiterWeb.Endpoint.start_link() do
-            {:ok, new_pid} -> new_pid
-            {:error, {:already_started, existing_pid}} -> existing_pid
-          end
-      end
-
     # Start Finch for HTTP client
     {:ok, _finch_pid} =
       case Finch.start_link(
@@ -122,32 +72,6 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
         {:error, {:already_started, pid}} -> {:ok, pid}
       end
 
-    # Give the server time to fully start and bind to port
-    Process.sleep(1000)
-
-    # Verify server is listening
-    case :gen_tcp.connect(~c"192.168.0.81", 4000, [], 1000) do
-      {:ok, socket} ->
-        :gen_tcp.close(socket)
-        IO.puts("\n✓ HTTP server started successfully on port 4000")
-
-      {:error, reason} ->
-        IO.puts("\n✗ WARNING: HTTP server not responding on port 4000: #{inspect(reason)}")
-        IO.puts("  HTTP performance tests may fail with connection errors")
-    end
-
-    on_exit(fn ->
-      # Stop endpoint to free the port
-      if Process.alive?(endpoint_pid) do
-        Supervisor.stop(endpoint_pid, :normal, 5000)
-      end
-
-      # Restore original config
-      if original_config do
-        Application.put_env(:rate_limiter, RateLimiterWeb.Endpoint, original_config)
-      end
-    end)
-
     :ok
   end
 
@@ -159,7 +83,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   defp http_post(path, body) do
-    url = "http://192.168.0.81:4000#{path}"
+    url = "http://192.168.0.249:4000#{path}"
 
     case Finch.build(:post, url, [{"content-type", "application/json"}], Jason.encode!(body))
          |> Finch.request(RateLimiter.Finch) do
@@ -176,7 +100,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   defp http_get(path) do
-    url = "http://192.168.0.81:4000#{path}"
+    url = "http://192.168.0.249:4000#{path}"
 
     case Finch.build(:get, url) |> Finch.request(RateLimiter.Finch) do
       {:ok, %{status: status, body: response_body}} ->
@@ -192,7 +116,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   # defp http_delete(path) do
-  #   url = "http://192.168.0.81:4000#{path}"
+  #   url = "http://localhost:4000#{path}"
   #
   #   case Finch.build(:delete, url) |> Finch.request(RateLimiter.Finch) do
   #     {:ok, %{status: status, body: response_body}} ->

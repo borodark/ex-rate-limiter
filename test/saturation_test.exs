@@ -21,7 +21,7 @@ defmodule RateLimiter.SaturationTest do
 
   # Test configuration
   # Use IP address instead of hostname to avoid DNS resolution bottleneck
-  @base_url "http://127.0.0.1:4000"
+  @base_url "http://192.168.0.249:4000"
   @health_endpoint "#{@base_url}/api/v1/health"
   @ratelimit_endpoint "#{@base_url}/api/v1/ratelimit"
 
@@ -36,9 +36,9 @@ defmodule RateLimiter.SaturationTest do
                default: [
                  # Core pool settings (maximum concurrency)
                  # Connections per pool
-                 size: 1024,
+                 size: 20000,
                  # Number of pools (44 CPUs × ~12)
-                 count: 44,
+                 count: 512,
                  # Performance monitoring
                  start_pool_metrics?: false,
 
@@ -64,9 +64,9 @@ defmodule RateLimiter.SaturationTest do
                      keepalive: true,
 
                      # Large buffers for maximum throughput (1MB each)
-                     sndbuf: 1_048_576,
-                     recbuf: 1_048_576,
-                     buffer: 1_048_576,
+                     sndbuf: 2_097_152,
+                     recbuf: 2_097_152,
+                     buffer: 2_097_152,
 
                      # Timeout settings
                      send_timeout: 60_000,
@@ -274,14 +274,10 @@ defmodule RateLimiter.SaturationTest do
 
       concurrency_levels = [
         10,
-        25,
-        50,
         100,
-        200,
-        256,
-        300,
-        400,
-        496
+        1000,
+        10_000,
+        100_000
       ]
 
       requests_per_task = 100
@@ -452,13 +448,13 @@ defmodule RateLimiter.SaturationTest do
   end
 
   describe "Extreme Load Testing" do
-    test "handles 100,000 concurrent connections ALL AT ONCE" do
+    test "handles 1_000,000 concurrent connections ALL AT ONCE" do
       IO.puts("\n=== Extreme Load Test: 100,000 Concurrent Connections ===")
       IO.puts("This test pushes the system to TRUE extreme limits...")
       IO.puts("All 100,000 requests spawned SIMULTANEOUSLY (no batching)")
       IO.puts("Testing true server saturation point...")
 
-      concurrency = 100_000
+      concurrency = 1_000_000
       start_time = System.monotonic_time(:millisecond)
 
       IO.puts("\nSpawning #{concurrency} concurrent tasks NOW...")
@@ -579,9 +575,9 @@ defmodule RateLimiter.SaturationTest do
 
       Process.sleep(1000)
 
-      IO.puts("\nPhase 3: BURST load (500 connections, 30 seconds)...")
+      IO.puts("\nPhase 3: BURST load (5000 connections, 30 seconds)...")
       phase3_start = System.monotonic_time(:millisecond)
-      phase3_results = run_burst_phase(500, 30_000, "burst")
+      phase3_results = run_burst_phase(5000, 30_000, "burst")
       phase3_elapsed = System.monotonic_time(:millisecond) - phase3_start
 
       Process.sleep(1000)

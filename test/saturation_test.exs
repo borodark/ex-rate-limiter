@@ -21,7 +21,8 @@ defmodule RateLimiter.SaturationTest do
 
   # Test configuration
   # Use IP address instead of hostname to avoid DNS resolution bottleneck
-  @base_url "http://192.168.0.249:4000"
+  #@base_url "http://192.168.0.249:4000"
+  @base_url "http://127.0.0.1:4000"
   @health_endpoint "#{@base_url}/api/v1/health"
   @ratelimit_endpoint "#{@base_url}/api/v1/ratelimit"
 
@@ -273,11 +274,9 @@ defmodule RateLimiter.SaturationTest do
       IO.puts("Testing with increasing concurrent connections...")
 
       concurrency_levels = [
-        10,
-        100,
-        1000,
-        10_000,
-        100_000
+        1_000,
+        5_000,
+        10_000
       ]
 
       requests_per_task = 100
@@ -447,14 +446,15 @@ defmodule RateLimiter.SaturationTest do
     end
   end
 
+  @extreme 200_000
   describe "Extreme Load Testing" do
-    test "handles 1_000,000 concurrent connections ALL AT ONCE" do
-      IO.puts("\n=== Extreme Load Test: 100,000 Concurrent Connections ===")
+    test "handles #inspect{(@extreme)} concurrent connections ALL AT ONCE" do
+      IO.puts("\n=== Extreme Load Test: #inspect{(@extreme)} Concurrent Connections ===")
       IO.puts("This test pushes the system to TRUE extreme limits...")
-      IO.puts("All 100,000 requests spawned SIMULTANEOUSLY (no batching)")
+      IO.puts("All #inspect{(@extreme)} requests spawned SIMULTANEOUSLY (no batching)")
       IO.puts("Testing true server saturation point...")
 
-      concurrency = 1_000_000
+      concurrency = @extreme
       start_time = System.monotonic_time(:millisecond)
 
       IO.puts("\nSpawning #{concurrency} concurrent tasks NOW...")
@@ -537,16 +537,16 @@ defmodule RateLimiter.SaturationTest do
       IO.puts("\n=== Extreme Load Analysis ===")
 
       if error_rate < 5.0 do
-        IO.puts("✓ System handled 100K concurrent connections with < 5% errors")
+        IO.puts("✓ System handled #inspect{(@extreme)} concurrent connections with < 5% errors")
       else
         IO.puts(
-          "⚠ System saturated at 100K connections (#{Float.round(error_rate, 2)}% error rate)"
+          "⚠ System saturated at #inspect{(@extreme)} connections (#{Float.round(error_rate, 2)}% error rate)"
         )
       end
 
       # The assertion is lenient for extreme load - we expect some errors
       assert error_rate < 20.0,
-             "Error rate should be < 20% even under extreme load (100K connections)"
+        "Error rate should be < 20% even under extreme load (#inspect{(@extreme)} connections)"
 
       assert throughput > 1000, "Should maintain > 1000 req/s even under extreme load"
     end

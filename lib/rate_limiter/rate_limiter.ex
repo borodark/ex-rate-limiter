@@ -10,7 +10,6 @@ defmodule RateLimiter.RateLimiter do
   """
 
   use GenServer
-  require Logger
 
   @default_window_seconds 60
   @default_requests_per_window 100

@@ -3,8 +3,182 @@
 A high-performance rate limiter service built in Elixir with Phoenix, achieving **44,000+ req/s throughput** and **sub-millisecond latency**.
 
 
-## TL;DR
+## Saturation tests
 
+The test done on 44 core of `Intel(R) Xeon(R) CPU E5-2699C v4 @ 2.20GHz`
+
+
+Set `ulimit -n 65536` and start server node:
+
+`iex --sname one@localhost --cookie secret_token -S mix phx.server`
+
+In another termanal set `ulimit -n 65536` and start tests:
+
+`iex --sname test@localhost --cookie secret_token -S mix test test/saturation_test.exs`
+
+
+```
+Running ExUnit with seed: 27368, max_cases: 176
+
+
+✓ Service is running on http://127.0.0.1:4000
+
+=== Burst Load Test ===
+Testing system response to sudden traffic bursts...
+
+Phase 1: Normal load (10 connections, 5 seconds)...
+
+Phase 2: BURST load (200 connections, 10 seconds)...
+
+Phase 3: BURST load (5000 connections, 30 seconds)...
+
+Phase 4: Recovery to normal (10 connections, 5 seconds)...
+
+Phase 1 (Normal):
+  Requests: 76416
+  Throughput: 15270.98 req/s
+  Errors: 0 (0.0%)
+  Latency P95: 1ms, Max: 23ms
+
+Phase 2 (Burst):
+  Requests: 346287
+  Throughput: 34494.17 req/s
+  Errors: 0 (0.0%)
+  Latency P95: 16ms, Max: 92ms
+
+Phase 3 (Burst):
+  Requests: 911565
+  Throughput: 29191.56 req/s
+  Errors: 0 (0.0%)
+  Latency P95: 386ms, Max: 1666ms
+
+Phase 4 (Recovery):
+  Requests: 64237
+  Throughput: 12844.83 req/s
+  Errors: 0 (0.0%)
+  Latency P95: 1ms, Max: 20ms
+
+=== Burst Test Analysis ===
+Burst phase error rate: 0.0% (should be < 10%)
+.
+=== Finding Saturation Point ===
+Testing with increasing concurrent connections...
+Note: Testing up to 10000 concurrent connections
+
+Testing 1000 concurrent connections...
+  Throughput: 26680.9 req/s
+  Error Rate: 0.0%
+  Total Time: 3748ms
+
+Testing 5000 concurrent connections...
+  Throughput: 28134.14 req/s
+  Error Rate: 0.0%
+  Total Time: 17772ms
+
+Testing 10000 concurrent connections...
+  Throughput: 26427.76 req/s
+  Error Rate: 0.0%
+  Total Time: 37839ms
+
+=== Saturation Summary ===
+
+Concurrency | Throughput (req/s) | Error Rate | Time (ms)
+------------|-------------------|-----------|----------
+       1000 |          26680.90 |       0.0% | 3748
+       5000 |          28134.14 |       0.0% | 17772
+      10000 |          26427.76 |       0.0% | 37839
+
+✓ Peak throughput: 28134.14 req/s at 5000 concurrent connections
+✓ No saturation detected up to 10000 concurrent connections
+.
+=== Baseline Performance Test ===
+Sending 1000 sequential requests...
+
+Baseline Results:
+  Total Time: 1042ms
+  Throughput: 959.69 req/s
+  Errors: 0
+  Latency Stats:
+    Min: 0ms
+    Avg: 1.04ms
+    Median: 1ms
+    P95: 2ms
+    P99: 2ms
+    Max: 6ms
+.
+=== Sustained Load Test (30 seconds) ===
+Running 500 concurrent connections for 30 seconds...
+
+Sustained Load Results:
+  Duration: 30053ms (target: 30000ms)
+  Total Requests: 891347
+  Throughput: 29659.17 req/s
+  Errors: 0 (0.0%)
+  Latency Stats:
+    Min: 0ms
+    Avg: 16.82ms
+    Median: 15ms
+    P95: 39ms
+    P99: 54ms
+    Max: 150ms
+.
+=== 100 Concurrent Connections Test ===
+Spawning 100 concurrent tasks, each sending 100 requests...
+
+100 Concurrent Connections Results:
+  Total Requests: 10000
+  Total Time: 256ms
+  Throughput: 39062.5 req/s
+  Errors: 0 (0.0%)
+  Latency Stats:
+    Min: 0ms
+    Avg: 2.22ms
+    Median: 1ms
+    P95: 6ms
+    P99: 11ms
+    Max: 30ms
+.
+=== Extreme Load Test: #inspect{(@extreme)} Concurrent Connections ===
+This test pushes the system to TRUE extreme limits...
+All #inspect{(@extreme)} requests spawned SIMULTANEOUSLY (no batching)
+Testing true server saturation point...
+
+Spawning 200000 concurrent tasks NOW...
+All tasks spawned in 118082ms
+
+Extreme Load Results:
+  Total Connections: 200000
+  Total Time: 118082ms (118.08s)
+  Throughput: 1693.74 req/s
+  Successful: 185023
+  Errors: 14977 (7.49%)
+  Latency Stats (successful requests):
+    Min: 0ms
+    Avg: 559.55ms
+    Median: 106ms
+    P95: 1747ms
+    P99: 1877ms
+    Max: 2374ms
+
+  Error Breakdown:
+    %Mint.TransportError{reason: :eaddrnotavail}: 14977 (100.0%)
+
+=== Extreme Load Analysis ===
+⚠ System saturated at #inspect{(@extreme)} connections (7.49% error rate)
+.
+Finished in 265.8 seconds (0.00s async, 265.8s sync)
+6 tests, 0 failures
+
+```
+
+
+Server node dashboard: http://localhost:4000/dashboard/
+
+Maxed out CPU during the tests:
+
+![Load Average ~ 117](./saturation-I.png)
+
+## TL;DR
 
 Start using Docker Compose:
 
@@ -28,10 +202,11 @@ print(response.json())
 ## Features
 
 ✅ **Performance**
-- **44,000+ req/s** average throughput (requirement: 1,000+)
+- **16,356 req/s** peak HTTP throughput with ultimate config (requirement: 1,000+)
+- **44,000+ req/s** direct GenServer throughput
 - **0.010ms** average latency (requirement: < 10ms)
-- **15,000+ req/s** with 50,000 concurrent requests
-- Linear scaling across client counts (17,000 - 44,000 req/s)
+- **25,000** concurrent connections with zero errors
+- **3.17x improvement** with full optimization (16.3x requirement!)
 
 ✅ **Reliability**
 - 42 comprehensive tests (unit, integration, performance)
@@ -141,6 +316,7 @@ DELETE /api/v1/client-config/vip_user
 
 - **[README_IMPLEMENTATION.md](./README_IMPLEMENTATION.md)** - Complete build/run/deploy guide
 - **[DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md)** - Docker & container deployment guide
+- **[SATURATION_REPORT.md](./SATURATION_REPORT.md)** - Performance limits & saturation testing results
 - **[DESIGN.md](./DESIGN.md)** - Architecture & design decisions
 - **[Tests](./test/)** - Runnable examples and test cases
 
@@ -164,6 +340,10 @@ mix test test/rate_limiter_web/controllers/rate_limit_controller_performance_tes
 
 # Integration tests
 mix test test/rate_limiter_web/
+
+# Saturation tests (requires running service on localhost:4000)
+mix phx.server  # In another terminal
+mix test test/saturation_test.exs --only saturation
 ```
 
 ### Test Coverage (66 tests total)
@@ -171,6 +351,7 @@ mix test test/rate_limiter_web/
 - **22 Integration Tests** - End-to-end workflows, per-client configs
 - **11 GenServer Performance Tests** - Direct GenServer throughput, latency, scalability
 - **12 HTTP Performance Tests** - Full HTTP stack performance (JSON, routing, network, health endpoint)
+- **5 Saturation Tests** - Performance limits, burst handling, sustained load (separate suite)
 
 ## Performance
 
@@ -188,6 +369,50 @@ mix test test/rate_limiter_web/
 | 1000 Sequential | 44,000+ |
 | 50,000 Concurrent | 15,000+ |
 | 10,000 requests (10-1000 clients) | 17,000 - 44,000 |
+
+### Saturation Limits (from live testing)
+
+**🚀 Ultimate Configuration (10K Acceptors + 1M Client Pool):**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | **16,356 req/s** (5,000 concurrent) |
+| **Zero-Error Range** | Up to 25,000 concurrent connections |
+| **Optimal Range** | 2,500-5,000 concurrent connections |
+| **Improvement** | 3.17x over original (16.3x requirement!) |
+
+**⚡ With 10,000 Acceptors + 100K Client Pool:**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | 15,174 req/s (5,000 concurrent) |
+| **Zero-Error Range** | Up to 25,000 concurrent connections |
+| **Improvement** | 2.9x over original |
+
+**⚡ With 1,000 Acceptors + 100K Client Pool:**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | 13,248 req/s (5,000 concurrent) |
+| **Zero-Error Range** | Up to 25,000 concurrent connections |
+| **Better for** | Variable/moderate workloads |
+
+**📊 Original Configuration:**
+| Metric | Value |
+|--------|-------|
+| **Peak Throughput** | 5,154 req/s (200 concurrent) |
+| **Sustained Load** | 5,305 req/s (30s, 50 concurrent) |
+
+**Optimization Journey:**
+| Configuration | Throughput | Improvement |
+|--------------|-----------|-------------|
+| Original     | 5,154 req/s | Baseline |
+| + 1K acceptors + 100K pool | 13,248 req/s | +157% |
+| + 10K acceptors + 100K pool | 15,174 req/s | +194% |
+| + 10K acceptors + 1M pool | **16,356 req/s** | **+217%** |
+
+✅ **16,356 req/s peak throughput (16.3x the 1,000 req/s requirement!)**
+✅ **Handles 25,000 concurrent connections with zero errors**
+✅ **Client pool matters**: 1M pool → +7.7% over 100K pool
+
+See **[SATURATION_REPORT.md](./SATURATION_REPORT.md)** for detailed analysis.
 
 ## Architecture
 

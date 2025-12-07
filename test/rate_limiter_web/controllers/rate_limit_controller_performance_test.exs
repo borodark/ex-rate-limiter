@@ -9,88 +9,68 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
 
   # Start the application for HTTP testing
   setup_all do
-    # Save original config
-    original_config = Application.get_env(:rate_limiter, RateLimiterWeb.Endpoint)
-
-    # Stop endpoint if it's already running with wrong config
-    case Process.whereis(RateLimiterWeb.Endpoint) do
-      nil -> :ok
-      pid -> Supervisor.stop(pid, :normal, 5000)
-    end
-
-    # Wait for endpoint to fully stop
-    Process.sleep(100)
-
-    # Configure endpoint to run server on port 4002
-    Application.put_env(:rate_limiter, RateLimiterWeb.Endpoint,
-      adapter: Bandit.PhoenixAdapter,
-      http: [port: 4002],
-      server: true,
-      secret_key_base: "test_secret_key_base_for_testing_only_min_64_chars_required_here",
-      url: [host: "localhost"],
-      render_errors: [
-        formats: [json: RateLimiterWeb.ErrorJSON],
-        layout: false
-      ]
-    )
-
-    # Ensure the app is started
-    Application.ensure_all_started(:rate_limiter)
-
-    # Start the endpoint with new config
-    endpoint_pid =
-      case RateLimiterWeb.Endpoint.start_link() do
-        {:ok, pid} ->
-          pid
-
-        {:error, {:already_started, pid}} ->
-          # Restart with new config
-          try do
-            Supervisor.stop(pid, :normal, 5000)
-          rescue
-            _ -> :ok
-          end
-
-          Process.sleep(200)
-
-          case RateLimiterWeb.Endpoint.start_link() do
-            {:ok, new_pid} -> new_pid
-            {:error, {:already_started, existing_pid}} -> existing_pid
-          end
-      end
-
     # Start Finch for HTTP client
     {:ok, _finch_pid} =
-      case Finch.start_link(name: RateLimiter.Finch) do
+      case Finch.start_link(
+             name: RateLimiter.Finch,
+             pools: %{
+               default: [
+                 # Core pool settings (maximum concurrency)
+                 # Connections per pool
+                 size: 1024,
+                 # Number of pools (44 CPUs × ~12)
+                 count: 44,
+                 # Performance monitoring
+                 # Enable metrics collection
+                 start_pool_metrics?: true,
+
+                 # Connection options for maximum performance
+                 conn_opts: [
+                   # Timeout settings
+                   # 2 min connect timeout
+                   timeout: 120_000,
+
+                   # Network mode
+                   # Passive mode for high load
+                   mode: :passive,
+
+                   # Disable logging overhead
+                   log: false,
+
+                   # Transport options (passed to :gen_tcp)
+                   transport_opts: [
+                     # Critical latency optimizations
+                     # Disable Nagle's algorithm
+                     nodelay: true,
+                     # TCP keepalive
+                     keepalive: true,
+
+                     # Large buffers for maximum throughput (1MB each)
+                     sndbuf: 1_048_576,
+                     recbuf: 1_048_576,
+                     buffer: 1_048_576,
+
+                     # Timeout settings
+                     send_timeout: 60_000,
+                     send_timeout_close: true,
+
+                     # Socket settings for performance
+                     packet: :raw,
+                     mode: :binary,
+                     active: false,
+                     reuseaddr: true,
+
+                     # Message queue management
+                     high_msgq_watermark: 16_384,
+                     low_msgq_watermark: 8_192
+                   ]
+                 ]
+               ]
+             }
+           ) do
         {:ok, pid} -> {:ok, pid}
         {:error, {:already_started, pid}} -> {:ok, pid}
       end
-
-    # Give the server time to fully start and bind to port
-    Process.sleep(1000)
-
-    # Verify server is listening
-    case :gen_tcp.connect(~c"localhost", 4002, [], 1000) do
-      {:ok, socket} ->
-        :gen_tcp.close(socket)
-        IO.puts("\n✓ HTTP server started successfully on port 4002")
-
-      {:error, reason} ->
-        IO.puts("\n✗ WARNING: HTTP server not responding on port 4002: #{inspect(reason)}")
-        IO.puts("  HTTP performance tests may fail with connection errors")
-    end
-
-    on_exit(fn ->
-      # Stop endpoint to free the port
-      if Process.alive?(endpoint_pid) do
-        Supervisor.stop(endpoint_pid, :normal, 5000)
-      end
-
-      # Restore original config
-      if original_config do
-        Application.put_env(:rate_limiter, RateLimiterWeb.Endpoint, original_config)
-      end
-    end)
 
     :ok
   end
@@ -103,7 +83,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   defp http_post(path, body) do
-    url = "http://localhost:4002#{path}"
+    url = "http://192.168.0.249:4000#{path}"
 
     case Finch.build(:post, url, [{"content-type", "application/json"}], Jason.encode!(body))
          |> Finch.request(RateLimiter.Finch) do
@@ -120,7 +100,7 @@ defmodule RateLimiterWeb.RateLimitControllerPerformanceTest do
   end
 
   defp http_get(path) do
-    url = "http://localhost:4002#{path}"
+    url = "http://192.168.0.249:4000#{path}"
 
     case Finch.build(:get, url) |> Finch.request(RateLimiter.Finch) do
       {:ok, %{status: status, body: response_body}} ->

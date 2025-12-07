@@ -9,6 +9,7 @@ defmodule RateLimiter.Application do
   def start(_type, _args) do
     children = [
       RateLimiter.RateLimiter,
+      RateLimiterWeb.Telemetry,
       RateLimiterWeb.Endpoint
     ]
 
